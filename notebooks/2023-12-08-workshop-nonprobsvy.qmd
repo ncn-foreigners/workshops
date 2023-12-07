@@ -76,7 +76,7 @@ Odsetek podmiotów zatrudniających na jedną zmianę na podstawie danych CBOP b
 
 ## Standardowy estymator
 
-```{r}
+```{r ipw-stadnard}
 est1_logit <- nonprob(
   selection = ~ woj + sektor + pkd + klasa,
   target = ~ jedna_zmiana,
@@ -111,24 +111,24 @@ est_ipw_standard
 
 Strukura obiektu
 
-```{r}
+```{r ipw-struktura}
 str(est1_logit,1)
 ```
 Informacje o modelu regresji logistycznej będącym podstawą estymatora IPW.
 
-```{r}
+```{r ipw-struktura-sel}
 str(est1_logit$selection,1)
 ```
 
 Metoda summary
 
-```{r summary}
+```{r ipw-summary}
 summary(est1_logit)
 ```
 
 ## Estymator kalibrowany
 
-```{r}
+```{r ipw-cal}
 est2_logit <- nonprob(
   selection = ~ woj + sektor + pkd + klasa,
   target = ~ jedna_zmiana,
@@ -166,23 +166,23 @@ est_ipw_calib
 
 Porównanie wartości globalnych pierwszego i drugiego IPW (dla logit)
 
-```{r}
+```{r ipw-cal-wagi}
 cbop$ipw1_waga <- est1_logit$weights
 cbop$ipw2_waga <- est2_logit$weights
 ```
 
 Liczba podmiotów:
 
-```{r}
+```{r ipw-cal-totale}
 c(popyt=sum(weights(popyt_svy)), ipw1=sum(cbop$ipw1_waga), ipw2=sum(cbop$ipw2_waga))
 ```
 
 Wagi według wielkości podmiotu
 
-```{r}
+```{r ipw-cal-klasa1}
 svytotal(~klasa, popyt_svy)
 ```
-```{r}
+```{r ipw-cal-klasa2}
 xtabs(ipw1_waga ~ klasa, cbop)
 xtabs(ipw2_waga ~ klasa, cbop)
 ```
@@ -190,6 +190,7 @@ xtabs(ipw2_waga ~ klasa, cbop)
 ## Estymacja wariancji metodą bootstrap
 
 ```{r ipw-bootstrap}
+set.seed(2023-12-8)
 est3_logit <- nonprob(
   selection = ~ woj + sektor + pkd + klasa,
   target = ~ jedna_zmiana,
@@ -200,7 +201,7 @@ est3_logit <- nonprob(
   verbose = T, 
 )
 ```
-```{r}
+```{r ipw-bootstrap-summary}
 summary(est3_logit)
 ```
 
@@ -209,37 +210,262 @@ summary(est3_logit)
 Dobór zmiennych z wykorzystaniem metody SCAD.
 
 ```{r ipw-scad}
+set.seed(2023-12-8)
 est4_logit <- nonprob(
   selection = ~ woj + sektor + pkd + klasa,
   target = ~ jedna_zmiana,
   svydesign = popyt_svy,
   data = cbop,
   method_selection = "logit",
-  control_selection = controlSel(nfolds = 5, nlambda = 25),
+  control_selection = controlSel(nfolds = 5, nlambda = 10),
   control_inference = controlInf(vars_selection = TRUE),
   verbose = TRUE
 )
 ```
 
-```{r}
+```{r ipw-scad-summary}
 summary(est4_logit)
 ```
 
 Porównanie estymatorów dla logit
 
-```{r}
+```{r ipw-porowanie}
 ipw_summary <- rbind(cbind(est1_logit$output, est1_logit$confidence_interval),
                      cbind(est2_logit$output, est2_logit$confidence_interval),
                      cbind(est3_logit$output, est3_logit$confidence_interval),
                      cbind(est4_logit$output, est4_logit$confidence_interval))
 rownames(ipw_summary) <- NULL
-ipw_summary$est <- c("ipw", "ipw cal", "ipw boot", "ipw scad")
+ipw_summary$est <- c("ipw (st)", "ipw (cal)", "ipw (boot)", "ipw (scad)")
+ipw_summary
 ```
 
 
 # Estymator MI
 
-```{r}
+## Estymatory MI
 
+Estymator MI na podstawie liniowego modelu prawdopodobieństwa
+
+```{r mi-glm-lp}
+est5_glm <- nonprob(
+  outcome = jedna_zmiana ~ woj + sektor + pkd + klasa,
+  data = cbop,
+  svydesign = popyt_svy,
+  method_outcome = "glm",
+  family_outcome = "gaussian"
+)
+
+cbind(est5_glm$output,est5_glm$confidence_interval)
+```
+
+Estymator MI na podstawie modelu regresji logistycznej
+
+```{r mi-glm-binom}
+est5_glm_biom <- nonprob(
+  outcome = jedna_zmiana ~ woj + sektor + pkd + klasa,
+  data = cbop,
+  svydesign = popyt_svy,
+  method_outcome = "glm",
+  family_outcome = "binomial"
+)
+cbind(est5_glm_biom$output,est5_glm_biom$confidence_interval)
+```
+```{r mi-glm-binom-summary}
+summary(est5_glm_biom)
+```
+
+Struktura obiektu
+
+```{r mi-glm-binom-struktura}
+str(est5_glm_biom$outcome,1)
+```
+
+Estymator MI na podstawie metody najbliższego sąsiada
+
+```{r mi-glm-nn}
+est6_glm_nn <- nonprob(
+  outcome = jedna_zmiana ~ woj + sektor + pkd + klasa,
+  data = cbop,
+  svydesign = popyt_svy,
+  method_outcome = "nn",
+  control_outcome = controlOut(k=5)
+)
+cbind(est6_glm_nn$output,est6_glm_nn$confidence_interval)
+```
+
+Estymator MI na podstawie metody predictive mean matching (aktualnie: wariancja tylko na podstawie bootstrapu)
+
+```{r mi-glm-pmm}
+set.seed(2023-12-8)
+est6_glm_pmm <- nonprob(
+  outcome = jedna_zmiana ~ woj + sektor + pkd + klasa,
+  data = cbop,
+  svydesign = popyt_svy,
+  method_outcome = "pmm",
+  control_outcome = controlOut(k=5),
+  control_inference = controlInf(var_method = "bootstrap", num_boot = 50),
+  verbose = TRUE
+)
+cbind(est6_glm_pmm$output, est6_glm_pmm$confidence_interval)
+```
+## Dobór zmiennych
+
+```{r mi-glm-scad}
+set.seed(2023-12-8)
+est7_glm_sel <- nonprob(
+  outcome = jedna_zmiana ~ woj + sektor + pkd + klasa,
+  data = cbop,
+  svydesign = popyt_svy,
+  method_outcome = "glm",
+  family_outcome = "binomial",
+  control_outcome = controlOut(nfolds = 5, nlambda = 10),
+  control_inference = controlInf(vars_selection = TRUE),
+  verbose = TRUE
+)
+```
+```{r mi-glm-scad-wynik}
+cbind(est7_glm_sel$output,est7_glm_sel$confidence_interval)
+```
+```{r mi-glm-scad-summary}
+summary(est7_glm_sel)
+```
+Porównanie estymatorów dla masowej imputacji
+
+```{r mi-posumowanie}
+mi_summary <- rbind(cbind(est5_glm$output, est5_glm$confidence_interval),
+                     cbind(est5_glm_biom$output, est5_glm_biom$confidence_interval),
+                     cbind(est6_glm_nn$output, est6_glm_nn$confidence_interval),
+                     cbind(est6_glm_pmm$output, est6_glm_pmm$confidence_interval),
+                     cbind(est7_glm_sel$output, est7_glm_sel$confidence_interval))
+rownames(mi_summary) <- NULL
+mi_summary$est <- c("mi (lm)", "mi (glm)", "mi (nn)", "mi (pmm)", "mi (glm, scad)")
+mi_summary
+```
+
+# Estymator DR
+
+## Różne estymatory DR
+
+```{r dr-glm-binom}
+est8_dr1 <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  outcome = jedna_zmiana ~ woj + sektor + pkd + klasa,
+  svydesign = popyt_svy,
+  data = cbop,
+  method_selection = "logit",
+  method_outcome = "glm",
+  family_outcome = "binomial"
+)
+
+cbind(est8_dr1$output,est8_dr1$confidence_interval)
+```
+```{r dr-glm-binom-summary}
+summary(est8_dr1)
+```
+
+```{r dr-glm-binom-struktura}
+str(est8_dr1,1)
+```
+
+```{r dr-glm-calib}
+est8_dr2 <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  outcome = jedna_zmiana ~ woj + sektor + pkd + klasa,
+  svydesign = popyt_svy,
+  data = cbop,
+  method_selection = "logit",
+  method_outcome = "glm",
+  family_outcome = "binomial",
+  control_selection = controlSel(h = 1, est_method_sel = "gee")
+)
+
+cbind(est8_dr2$output,est8_dr2$confidence_interval)
+```
+Estymacja wariancji metodą bootstrap
+
+```{r dr-glm-bootstrap}
+set.seed(2023-12-8)
+est8_dr3 <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  outcome = jedna_zmiana ~ woj + sektor + pkd + klasa,
+  svydesign = popyt_svy,
+  data = cbop,
+  method_selection = "logit",
+  method_outcome = "glm",
+  family_outcome = "binomial",
+  control_inference = controlInf(var_method = "bootstrap", num_boot = 50),
+  verbose = TRUE
+)
+
+cbind(est8_dr3$output,est8_dr3$confidence_interval)
+```
+
+## Dobór zmiennych
+
+```{r dr-glm-scad}
+set.seed(2023-12-8)
+est9_dr1 <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  outcome = jedna_zmiana ~ woj + sektor + pkd + klasa,
+  svydesign = popyt_svy,
+  data = cbop,
+  method_selection = "logit",
+  method_outcome = "glm",
+  family_outcome = "binomial",
+  control_selection = controlSel(nfolds = 5, nlambda = 10),
+  control_outcome = controlOut(nfolds = 5, nlambda = 10),
+  control_inference = controlInf(vars_selection = TRUE),
+  verbose = TRUE
+)
+
+cbind(est9_dr1$output,est9_dr1$confidence_interval)
+```
+
+
+## Dobór zmiennych + minimalizacja obciążenia
+
+```{r dr-glm-scad-bias-min}
+set.seed(2023-12-8)
+est9_dr2 <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  outcome = jedna_zmiana ~ woj + sektor + pkd + klasa,
+  svydesign = popyt_svy,
+  data = cbop,
+  method_selection = "logit",
+  method_outcome = "glm",
+  family_outcome = "binomial",
+  control_selection = controlSel(nfolds = 5, nlambda = 10),
+  control_outcome = controlOut(nfolds = 5, nlambda = 10),
+  control_inference = controlInf(vars_selection = TRUE, bias_correction = TRUE),
+  verbose = TRUE
+)
+
+cbind(est9_dr2$output,est9_dr2$confidence_interval)
+```
+
+
+Porównanie szacunków
+
+```{r dr-podsumowanie}
+dr_summary <- rbind(cbind(est8_dr1$output, est8_dr1$confidence_interval),
+                    cbind(est8_dr2$output, est8_dr2$confidence_interval),
+                    cbind(est8_dr3$output, est8_dr3$confidence_interval),
+                    cbind(est9_dr1$output, est9_dr1$confidence_interval),
+                    cbind(est9_dr2$output, est9_dr2$confidence_interval))
+rownames(dr_summary) <- NULL
+dr_summary$est <- c("dr (ipw)", "dr (ipw cal)", "dr (ipw, boot)", "dr (scad)", "dr (scad, min)")
+dr_summary
+```
+
+# Porównanie szacunków
+
+```{r wykres-na-koniec}
+wyniki <- rbind(ipw_summary, mi_summary, dr_summary)
+
+ggplot(data = wyniki, aes(y = est, x = mean, xmin = lower_bound, xmax = upper_bound)) +
+  geom_point() +
+  geom_vline(xintercept = mean(cbop$jedna_zmiana), linetype = "dotted", color = "red") + 
+  geom_errorbar() +
+  labs(x = "Oszacowanie punktowe i przedziałowe", y = "Estymator")
 ```
 
