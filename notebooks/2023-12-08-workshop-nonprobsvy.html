@@ -2611,7 +2611,10 @@ vertical-align: -.125em;
   <li><a href="#informacje" id="toc-informacje" class="nav-link active" data-scroll-target="#informacje">Informacje</a></li>
   <li><a href="#instalacje-i-pakiety" id="toc-instalacje-i-pakiety" class="nav-link" data-scroll-target="#instalacje-i-pakiety">Instalacje i pakiety</a></li>
   <li><a href="#dane-na-szkolenie" id="toc-dane-na-szkolenie" class="nav-link" data-scroll-target="#dane-na-szkolenie">Dane na szkolenie</a></li>
-  <li><a href="#przypadek-gdy-dostępne-są-wyłącznie-dane" id="toc-przypadek-gdy-dostępne-są-wyłącznie-dane" class="nav-link" data-scroll-target="#przypadek-gdy-dostępne-są-wyłącznie-dane">Przypadek gdy dostępne są wyłącznie dane</a></li>
+  <li><a href="#estymator-ipw" id="toc-estymator-ipw" class="nav-link" data-scroll-target="#estymator-ipw">Estymator IPW</a>
+  <ul class="collapse">
+  <li><a href="#estymator-mi" id="toc-estymator-mi" class="nav-link" data-scroll-target="#estymator-mi">Estymator MI</a></li>
+  </ul></li>
   </ul>
 </nav>
 </div>
@@ -2849,37 +2852,194 @@ klasaS 13758 1199.67</code></pre>
 </div>
 </div>
 <p>Odsetek podmiotów zatrudniających na jedną zmianę na podstawie danych CBOP bez korekty wynosi: 66.05.</p>
-<p>Tworzymy wektor wartości zmiennych pomocniczych gdy tylko oszacowania na podstawie populacji są znane.</p>
+</section>
+<section id="estymator-ipw" class="level1">
+<h1>Estymator IPW</h1>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>wartosci_globalne <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">`</span><span class="at">(Intercept)</span><span class="st">`</span> <span class="ot">=</span> <span class="dv">51870</span>, <span class="at">woj =</span> <span class="dv">907578</span>, <span class="at">sektor =</span> <span class="dv">47321</span>, <span class="at">pkdC =</span> <span class="dv">9405</span>, </span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>                       <span class="at">pkdD.E =</span> <span class="dv">520</span>, <span class="at">pkdF =</span> <span class="dv">9492</span>, <span class="at">pkdG =</span> <span class="dv">13849</span>, <span class="at">pkdH =</span> <span class="dv">3653</span>, <span class="at">pkdI =</span> <span class="dv">2344</span>, </span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>                       <span class="at">pkdJ =</span> <span class="dv">1118</span>, <span class="at">pkdK.L =</span> <span class="dv">1114</span>, <span class="at">pkdM =</span> <span class="dv">2627</span>, <span class="at">pkdN =</span> <span class="dv">1320</span>, <span class="at">pkdO =</span> <span class="dv">1406</span>, </span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>                       <span class="at">pkdP =</span> <span class="dv">1281</span>, <span class="at">pkdQ =</span> <span class="dv">1954</span>, <span class="at">pkdR.S =</span> <span class="dv">1787</span>, <span class="at">klasaD =</span> <span class="dv">8561</span>, <span class="at">klasaM =</span> <span class="dv">29551</span>, </span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>                       <span class="at">klasaS =</span> <span class="dv">13758</span>)</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>wartosci_globalne</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>(Intercept)         woj      sektor        pkdC      pkdD.E        pkdF 
-      51870      907578       47321        9405         520        9492 
-       pkdG        pkdH        pkdI        pkdJ      pkdK.L        pkdM 
-      13849        3653        2344        1118        1114        2627 
-       pkdN        pkdO        pkdP        pkdQ      pkdR.S      klasaD 
-       1320        1406        1281        1954        1787        8561 
-     klasaM      klasaS 
-      29551       13758 </code></pre>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>est1_logit <span class="ot">&lt;-</span> <span class="fu">nonprob</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection =</span> <span class="sc">~</span> woj <span class="sc">+</span> sektor <span class="sc">+</span> pkd <span class="sc">+</span> klasa,</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">target =</span> <span class="sc">~</span> jedna_zmiana,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">svydesign =</span> popyt_svy,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> cbop,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">method_selection =</span> <span class="st">&quot;logit&quot;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>est1_probit <span class="ot">&lt;-</span> <span class="fu">nonprob</span>(</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection =</span> <span class="sc">~</span> woj <span class="sc">+</span> sektor <span class="sc">+</span> pkd <span class="sc">+</span> klasa,</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">target =</span> <span class="sc">~</span> jedna_zmiana,</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">svydesign =</span> popyt_svy,</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> cbop,</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">method_selection =</span> <span class="st">&quot;probit&quot;</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>est1_cloglog <span class="ot">&lt;-</span> <span class="fu">nonprob</span>(</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection =</span> <span class="sc">~</span> woj <span class="sc">+</span> sektor <span class="sc">+</span> pkd <span class="sc">+</span> klasa,</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">target =</span> <span class="sc">~</span> jedna_zmiana,</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">svydesign =</span> popyt_svy,</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> cbop,</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">method_selection =</span> <span class="st">&quot;cloglog&quot;</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="fu">rbind</span>(<span class="fu">cbind</span>(est1_logit<span class="sc">$</span>output, est1_logit<span class="sc">$</span>confidence_interval),</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>      <span class="fu">cbind</span>(est1_probit<span class="sc">$</span>output, est1_probit<span class="sc">$</span>confidence_interval),</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>      <span class="fu">cbind</span>(est1_cloglog<span class="sc">$</span>output, est1_cloglog<span class="sc">$</span>confidence_interval))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="kable-table">
+<table class="table table-sm table-striped">
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: right;">mean</th>
+<th style="text-align: right;">SE</th>
+<th style="text-align: right;">lower_bound</th>
+<th style="text-align: right;">upper_bound</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">jedna_zmiana</td>
+<td style="text-align: right;">0.7052226</td>
+<td style="text-align: right;">0.0104090</td>
+<td style="text-align: right;">0.6848214</td>
+<td style="text-align: right;">0.7256237</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">jedna_zmiana1</td>
+<td style="text-align: right;">0.7052604</td>
+<td style="text-align: right;">0.0114042</td>
+<td style="text-align: right;">0.6829085</td>
+<td style="text-align: right;">0.7276123</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">jedna_zmiana2</td>
+<td style="text-align: right;">0.7055876</td>
+<td style="text-align: right;">0.0100056</td>
+<td style="text-align: right;">0.6859770</td>
+<td style="text-align: right;">0.7251982</td>
+</tr>
+</tbody>
+</table>
 </div>
+</div>
+</div>
+<p>Strukura obiektu</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">str</span>(est1_logit,<span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>List of 13
+ $ call               : language nonprob(data = cbop, selection = ~woj + sektor + pkd + klasa, target = ~jedna_zmiana,      svydesign = popyt_svy,| __truncated__
+ $ X                  : num [1:15867, 1:18] 1 1 1 1 1 1 1 1 1 1 ...
+  ..- attr(*, &quot;dimnames&quot;)=List of 2
+ $ y                  :List of 1
+ $ prob               : num [1:15867] 0.561 0.209 0.217 0.201 0.217 ...
+ $ weights            : num [1:9344] 1.78 4.78 4.6 4.98 4.6 ...
+ $ control            :List of 2
+ $ output             :&#39;data.frame&#39;:    1 obs. of  2 variables:
+ $ SE                 :&#39;data.frame&#39;:    1 obs. of  2 variables:
+ $ confidence_interval:&#39;data.frame&#39;:    1 obs. of  2 variables:
+ $ nonprob_size       : int 9344
+ $ prob_size          : int 6523
+ $ pop_size           : Named num 53008
+  ..- attr(*, &quot;names&quot;)= chr &quot;pop_size&quot;
+ $ selection          :List of 13
+ - attr(*, &quot;class&quot;)= chr [1:2] &quot;nonprobsvy&quot; &quot;nonprobsvy_ipw&quot;</code></pre>
+</div>
+</div>
+<p>Informacje o modelu regresji logistycznej będącym podstawą estymatora IPW.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">str</span>(est1_logit<span class="sc">$</span>selection,<span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>List of 13
+ $ coefficients     : Named num [1:18] -0.6388 -0.00497 0.00624 0.72746 -0.36762 ...
+  ..- attr(*, &quot;names&quot;)= chr [1:18] &quot;(Intercept)&quot; &quot;woj&quot; &quot;sektor&quot; &quot;pkdD.E&quot; ...
+ $ std_err          : Named num [1:18] 0.06574 0.00136 0.05673 0.09685 0.04102 ...
+  ..- attr(*, &quot;names&quot;)= chr [1:18] &quot;(Intercept)&quot; &quot;woj&quot; &quot;sektor&quot; &quot;pkdD.E&quot; ...
+ $ residuals        : num [1:15867] -0.209 -0.201 -0.358 -0.358 -0.349 ...
+ $ variance         : num 0.393
+ $ fitted_values    : num [1:15867] 0.561 0.209 0.217 0.201 0.217 ...
+ $ link             :List of 16
+  ..- attr(*, &quot;class&quot;)= chr &quot;method_selection&quot;
+ $ linear_predictors: num [1:15867] -1.331 -1.381 -0.585 -0.585 -0.624 ...
+ $ aic              : num 45905
+ $ weights          : num [1:9344] 1.78 4.78 4.6 4.98 4.6 ...
+ $ prior.weights    : num [1:9344] 1 1 1 1 1 1 1 1 1 1 ...
+ $ formula          :Class &#39;formula&#39;  language ~woj + sektor + pkd + klasa
+  .. ..- attr(*, &quot;.Environment&quot;)=&lt;environment: R_GlobalEnv&gt; 
+ $ df_residual      : int 15849
+ $ log_likelihood   : num -22935</code></pre>
+</div>
+</div>
+<p>Metoda summary</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(est1_logit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+nonprob(data = cbop, selection = ~woj + sektor + pkd + klasa, 
+    target = ~jedna_zmiana, svydesign = popyt_svy, method_selection = &quot;logit&quot;)
+
+-------------------------
+Estimated population mean: 0.7052 with overall std.err of: 0.01041
+And std.err for nonprobability and probability samples being respectively:
+0.005729 and 0.008691
+
+95% Confidence inverval for popualtion mean:
+             lower_bound upper_bound
+jedna_zmiana   0.6848214   0.7256237
+
+
+Based on: Inverse probability weighted method
+For a population of estimate size: 53008.31
+Obtained on a nonprobability sample of size: 9344
+With an auxiliary probability sample of size: 6523
+-------------------------
+
+Regression coefficients:
+-----------------------
+For glm regression on selection variable:
+             Estimate Std. Error z value  P(&gt;|z|)    
+(Intercept) -0.638804   0.065740  -9.717  &lt; 2e-16 ***
+woj         -0.004968   0.001359  -3.655 0.000257 ***
+sektor       0.006244   0.056733   0.110 0.912361    
+pkdD.E       0.727457   0.096846   7.511 5.85e-14 ***
+pkdF        -0.367615   0.041016  -8.963  &lt; 2e-16 ***
+pkdG        -0.528902   0.035440 -14.924  &lt; 2e-16 ***
+pkdH        -0.565655   0.057784  -9.789  &lt; 2e-16 ***
+pkdI         0.382723   0.055185   6.935 4.06e-12 ***
+pkdJ        -1.622877   0.134673 -12.051  &lt; 2e-16 ***
+pkdK.L       0.009256   0.077671   0.119 0.905144    
+pkdM        -0.447730   0.065622  -6.823 8.93e-12 ***
+pkdN         0.688011   0.064950  10.593  &lt; 2e-16 ***
+pkdO        -0.622548   0.091844  -6.778 1.22e-11 ***
+pkdP         1.033373   0.074019  13.961  &lt; 2e-16 ***
+pkdQ         0.274650   0.065450   4.196 2.71e-05 ***
+pkdR.S       0.123762   0.067303   1.839 0.065935 .  
+klasaM      -1.008585   0.033330 -30.261  &lt; 2e-16 ***
+klasaS      -0.367584   0.032972 -11.148  &lt; 2e-16 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+-------------------------
+
+Weights:
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  1.676   3.127   4.966   5.673   6.931  31.662 
+-------------------------
+
+Residuals:
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+-0.5950 -0.2295  0.6511  0.3332  0.8233  0.9684 
+
+AIC: 45905.08
+BIC: 46043.17
+Log-Likelihood: -22934.54 on 15849 Degrees of freedom</code></pre>
+</div>
+</div>
+<section id="estymator-mi" class="level2">
+<h2 class="anchored" data-anchor-id="estymator-mi">Estymator MI</h2>
+<div class="cell">
+
 </div>
 </section>
-<section id="przypadek-gdy-dostępne-są-wyłącznie-dane" class="level1">
-<h1>Przypadek gdy dostępne są wyłącznie dane</h1>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>est1_logit <span class="ot">&lt;-</span> <span class="fu">nonprob</span>(</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">selection =</span> <span class="sc">~</span> woj <span class="sc">+</span> sektor <span class="sc">+</span> pkd <span class="sc">+</span> klasa,</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">target =</span> <span class="sc">~</span> jedna_zmiana,</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">pop_totals =</span> wartosci_globalne,</span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> cbop,</span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">method_selection =</span> <span class="st">&quot;logit&quot;</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
 </section>
 
 </main>

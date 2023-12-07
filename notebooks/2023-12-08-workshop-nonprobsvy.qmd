@@ -49,7 +49,8 @@ Zbiory danych zawierają następujące kolumny:
 Wczytujemy dane
 
 ```{r wczytanie}
-popyt <- read.csv("../data-raw/popyt.csv")
+popyt <- read.csv("../data-raw/popyt.csv",
+                  colClasses = c("character", "numeric", rep("character", 3), "numeric"))
 head(popyt)
 ```
 Deklarujemy obiekt `svydesign`. Dla uproszczenie zakłdamy, że warstwy określone są przez 3 zmienne: `klasa`, `pkd` i `woj`. W praktyce schemat losowania jest troszkę inny (por. [Zeszyt metodologiczny badania PnP](https://stat.gov.pl/obszary-tematyczne/rynek-pracy/popyt-na-prace/zeszyt-metodologiczny-popyt-na-prace,3,1.html)).
@@ -64,30 +65,22 @@ svytotal(~klasa, popyt_svy)
 ```
 
 ```{r wczytanie2}
-cbop <- read.csv("../data-raw/cbop.csv")
+cbop <- read.csv("../data-raw/cbop.csv", 
+                 colClasses = c("character", "numeric", rep("character", 3), "logical")
+                 )
 head(cbop)
 ```
 Odsetek podmiotów zatrudniających na jedną zmianę na podstawie danych CBOP bez korekty wynosi: `r round(mean(cbop$jedna_zmiana)*100,2)`.
 
-Tworzymy wektor wartości zmiennych pomocniczych gdy tylko oszacowania na podstawie populacji są znane.
+# Estymator IPW
 
-```{r}
-wartosci_globalne <- c(`(Intercept)` = 51870, woj = 907578, sektor = 47321, pkdC = 9405, 
-                       pkdD.E = 520, pkdF = 9492, pkdG = 13849, pkdH = 3653, pkdI = 2344, 
-                       pkdJ = 1118, pkdK.L = 1114, pkdM = 2627, pkdN = 1320, pkdO = 1406, 
-                       pkdP = 1281, pkdQ = 1954, pkdR.S = 1787, klasaD = 8561, klasaM = 29551, 
-                       klasaS = 13758)
-wartosci_globalne
-```
-# Przypadek gdy dostępne są wyłącznie dane
-
-## Estymator Inverse Probability weighting
+## Standardowy estymator
 
 ```{r}
 est1_logit <- nonprob(
   selection = ~ woj + sektor + pkd + klasa,
   target = ~ jedna_zmiana,
-  pop_totals = wartosci_globalne,
+  svydesign = popyt_svy,
   data = cbop,
   method_selection = "logit"
 )
@@ -95,7 +88,7 @@ est1_logit <- nonprob(
 est1_probit <- nonprob(
   selection = ~ woj + sektor + pkd + klasa,
   target = ~ jedna_zmiana,
-  pop_totals = wartosci_globalne,
+  svydesign = popyt_svy,
   data = cbop,
   method_selection = "probit"
 )
@@ -103,14 +96,17 @@ est1_probit <- nonprob(
 est1_cloglog <- nonprob(
   selection = ~ woj + sektor + pkd + klasa,
   target = ~ jedna_zmiana,
-  pop_totals = wartosci_globalne,
+  svydesign = popyt_svy,
   data = cbop,
   method_selection = "cloglog"
 )
 
-rbind(cbind(est1_logit$output, est1_logit$confidence_interval),
-      cbind(est1_probit$output, est1_probit$confidence_interval),
-      cbind(est1_cloglog$output, est1_cloglog$confidence_interval))
+est_ipw_standard <- rbind(cbind(est1_logit$output, est1_logit$confidence_interval),
+                          cbind(est1_probit$output, est1_probit$confidence_interval),
+                          cbind(est1_cloglog$output, est1_cloglog$confidence_interval))
+est_ipw_standard$est <- "ipw"
+rownames(est_ipw_standard) <- NULL
+est_ipw_standard
 ```
 
 Strukura obiektu
@@ -118,9 +114,132 @@ Strukura obiektu
 ```{r}
 str(est1_logit,1)
 ```
+Informacje o modelu regresji logistycznej będącym podstawą estymatora IPW.
+
+```{r}
+str(est1_logit$selection,1)
+```
+
 Metoda summary
 
-```{r eval = FALSE}
+```{r summary}
 summary(est1_logit)
+```
+
+## Estymator kalibrowany
+
+```{r}
+est2_logit <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  target = ~ jedna_zmiana,
+  svydesign = popyt_svy,
+  data = cbop,
+  method_selection = "logit",
+  control_selection = controlSel(h = 1, est_method_sel = "gee")
+)
+
+est2_probit <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  target = ~ jedna_zmiana,
+  svydesign = popyt_svy,
+  data = cbop,
+  method_selection = "probit",
+  control_selection = controlSel(h = 1, est_method_sel = "gee")
+)
+
+est2_cloglog <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  target = ~ jedna_zmiana,
+  svydesign = popyt_svy,
+  data = cbop,
+  method_selection = "cloglog",
+  control_selection = controlSel(h = 1, est_method_sel = "gee")
+)
+
+est_ipw_calib <- rbind(cbind(est2_logit$output, est2_logit$confidence_interval),
+                          cbind(est2_probit$output, est2_probit$confidence_interval),
+                          cbind(est2_cloglog$output, est2_cloglog$confidence_interval))
+est_ipw_calib$est <- "ipw calib"
+rownames(est_ipw_calib) <- NULL
+est_ipw_calib
+```
+
+Porównanie wartości globalnych pierwszego i drugiego IPW (dla logit)
+
+```{r}
+cbop$ipw1_waga <- est1_logit$weights
+cbop$ipw2_waga <- est2_logit$weights
+```
+
+Liczba podmiotów:
+
+```{r}
+c(popyt=sum(weights(popyt_svy)), ipw1=sum(cbop$ipw1_waga), ipw2=sum(cbop$ipw2_waga))
+```
+
+Wagi według wielkości podmiotu
+
+```{r}
+svytotal(~klasa, popyt_svy)
+```
+```{r}
+xtabs(ipw1_waga ~ klasa, cbop)
+xtabs(ipw2_waga ~ klasa, cbop)
+```
+
+## Estymacja wariancji metodą bootstrap
+
+```{r ipw-bootstrap}
+est3_logit <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  target = ~ jedna_zmiana,
+  svydesign = popyt_svy,
+  data = cbop,
+  method_selection = "logit",
+  control_inference = controlInf(var_method = "bootstrap", num_boot = 50),
+  verbose = T, 
+)
+```
+```{r}
+summary(est3_logit)
+```
+
+## Dobór zmiennych do modelu
+
+Dobór zmiennych z wykorzystaniem metody SCAD.
+
+```{r ipw-scad}
+est4_logit <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  target = ~ jedna_zmiana,
+  svydesign = popyt_svy,
+  data = cbop,
+  method_selection = "logit",
+  control_selection = controlSel(nfolds = 5, nlambda = 25),
+  control_inference = controlInf(vars_selection = TRUE),
+  verbose = TRUE
+)
+```
+
+```{r}
+summary(est4_logit)
+```
+
+Porównanie estymatorów dla logit
+
+```{r}
+ipw_summary <- rbind(cbind(est1_logit$output, est1_logit$confidence_interval),
+                     cbind(est2_logit$output, est2_logit$confidence_interval),
+                     cbind(est3_logit$output, est3_logit$confidence_interval),
+                     cbind(est4_logit$output, est4_logit$confidence_interval))
+rownames(ipw_summary) <- NULL
+ipw_summary$est <- c("ipw", "ipw cal", "ipw boot", "ipw scad")
+```
+
+
+# Estymator MI
+
+```{r}
+
 ```
 
