@@ -1,0 +1,126 @@
+---
+title: "Wykorzystanie pakietu nonprobsvy (2023.12.08)"
+author: "Maciej Beręsewicz & Łukasz Chrostowski"
+format: 
+  html:
+    self-contained: true
+    table-of-contents: true
+    df-print: kable
+---
+
+# Informacje
+
+Szkolenie sfinansowane w ramach projektu "Statystyka cudzoziemców bez spisu powszechnego - jakość, integracja danych i estymacja" (opis) finansowanego z grantu Narodowego Centrum Nauki OPUS 20 (2020/39/B/HS4/00941).
+
+# Instalacje i pakiety
+
+Instalujemy pakiet `remotes`.
+
+```{r install, eval=FALSE}
+install.packages("remotes") ## do instalacji pakietu nonprobsvy
+install.packages("ggplot2") ## do wizualiacji 
+install.packages("survey") ## do estymacji na podstawie prób losowych
+remotes::install_github("ncn-foreigners/nonprobsvy")
+```
+Ładujemy pakiet `nonprobsvy`.
+
+```{r pakiety, message = FALSE}
+library(nonprobsvy) ## do prób nielosowych
+library(survey) ## do badania popyt na pracę
+library(ggplot2) ## do wizualizacji
+```
+
+# Dane na szkolenie
+
+Zbiory danych znajdują się w folderze `data-raw/`:
+
++ plik `popyt.csv` -- zawiera zanonimizowane dane o podmiotach posiadających przynajmniej jedno wolne miejsce pracy z badania [Popyt na pracę](https://stat.gov.pl/obszary-tematyczne/rynek-pracy/popyt-na-prace/) (PnP) pozyskane przez Instytut Informatyki i Gospodarki Ilościowej UEP.
++ plik `cbop.csv` -- zawiera zanonimizowane dane podmiotów, będących w populacji badania PnP, z [Centralnej Bazy Ofert Pracy](https://oferty.praca.gov.pl/portal/index.cbop#/listaOfert) pobrane przez CBOP API.
+
+Zbiory danych zawierają następujące kolumny:
+
++ `id_jednostki` -- unikalny identyfikator jednostki,
++ `sektor` - 0=publiczny, 1=prywatny,
++ `pkd` - sekcje pkd (od C do S; sekcje połączone: D i E, K i L, R i S),
++ `woj` - województwo
++ `waga` (tylko `popyt`) -- waga finalna ustalona w ramach badania PnP,
++ `jedna_zmiana` (tylko `cbop`) -- czy podmiot zatrudnia osoby na jedną zmianę (na podstawie zmiennej `kodZmianowości`, więcej na [CBOP dla integratorów](https://oferty.praca.gov.pl/portal/index.cbop#/dlaInt)).
+
+Wczytujemy dane
+
+```{r wczytanie}
+popyt <- read.csv("../data-raw/popyt.csv")
+head(popyt)
+```
+Deklarujemy obiekt `svydesign`. Dla uproszczenie zakłdamy, że warstwy określone są przez 3 zmienne: `klasa`, `pkd` i `woj`. W praktyce schemat losowania jest troszkę inny (por. [Zeszyt metodologiczny badania PnP](https://stat.gov.pl/obszary-tematyczne/rynek-pracy/popyt-na-prace/zeszyt-metodologiczny-popyt-na-prace,3,1.html)).
+
+```{r schemat}
+popyt_svy <- svydesign(ids = ~1,  ## losujemy jednostki, a nie zespoły
+                       weights = ~waga,  ## waga finalna
+                       strata = ~ klasa + pkd + woj,  ## warstwy
+                       data = popyt) ## dane
+
+svytotal(~klasa, popyt_svy)
+```
+
+```{r wczytanie2}
+cbop <- read.csv("../data-raw/cbop.csv")
+head(cbop)
+```
+Odsetek podmiotów zatrudniających na jedną zmianę na podstawie danych CBOP bez korekty wynosi: `r round(mean(cbop$jedna_zmiana)*100,2)`.
+
+Tworzymy wektor wartości zmiennych pomocniczych gdy tylko oszacowania na podstawie populacji są znane.
+
+```{r}
+wartosci_globalne <- c(`(Intercept)` = 51870, woj = 907578, sektor = 47321, pkdC = 9405, 
+                       pkdD.E = 520, pkdF = 9492, pkdG = 13849, pkdH = 3653, pkdI = 2344, 
+                       pkdJ = 1118, pkdK.L = 1114, pkdM = 2627, pkdN = 1320, pkdO = 1406, 
+                       pkdP = 1281, pkdQ = 1954, pkdR.S = 1787, klasaD = 8561, klasaM = 29551, 
+                       klasaS = 13758)
+wartosci_globalne
+```
+# Przypadek gdy dostępne są wyłącznie dane
+
+## Estymator Inverse Probability weighting
+
+```{r}
+est1_logit <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  target = ~ jedna_zmiana,
+  pop_totals = wartosci_globalne,
+  data = cbop,
+  method_selection = "logit"
+)
+
+est1_probit <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  target = ~ jedna_zmiana,
+  pop_totals = wartosci_globalne,
+  data = cbop,
+  method_selection = "probit"
+)
+
+est1_cloglog <- nonprob(
+  selection = ~ woj + sektor + pkd + klasa,
+  target = ~ jedna_zmiana,
+  pop_totals = wartosci_globalne,
+  data = cbop,
+  method_selection = "cloglog"
+)
+
+rbind(cbind(est1_logit$output, est1_logit$confidence_interval),
+      cbind(est1_probit$output, est1_probit$confidence_interval),
+      cbind(est1_cloglog$output, est1_cloglog$confidence_interval))
+```
+
+Strukura obiektu
+
+```{r}
+str(est1_logit,1)
+```
+Metoda summary
+
+```{r eval = FALSE}
+summary(est1_logit)
+```
+
